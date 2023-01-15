@@ -76,10 +76,12 @@ def main():
     if not validateResponse(forecast_grid_response):
         print("Forecast call problem")
         exit(1)
+
     
     grid_data = forecast_grid_response.json()["properties"]
     min_temperature_data = grid_data["minTemperature"]["values"]
     max_temperature_data = grid_data["maxTemperature"]["values"]
+
 
     mean_temperature_data = list(map(
         lambda zip_temp_data : 
@@ -87,37 +89,33 @@ def main():
                 "validTime":zip_temp_data[0]["validTime"], 
                 "value":(zip_temp_data[0]["value"] + zip_temp_data[1]["value"]) / 2
             }, 
-        zip(min_temperature_data, max_temperature_data)
+        zip(min_temperature_data, max_temperature_data))
         )
-    )
 
-    
-    def apiToDateTime(api_date : str) -> datetime:
+
+    today = datetime.now()
+
+    def convertTime(api_date):
         iso_date = api_date.split("/")[0]
-        return datetime.fromisoformat(iso_date)
-
-    def getDaysAhead(date : datetime) -> int:
-        return date.toordinal() - datetime.now().toordinal()
-
-    def convertTime(api_date : str) -> float:
-        datetime_date = apiToDateTime(api_date)
-        days_ahead = getDaysAhead(datetime_date)
+        datetime_date = datetime.fromisoformat(iso_date)
+        days_ahead = datetime_date.toordinal() - today.toordinal()
         # hour_percent = datetime_date.time().hour / 24
-        value = float(days_ahead) # + hour_percent
+        value = days_ahead # + hour_percent
         return value
 
     fig, temperature_ax = plt.subplots()
 
-    def plotTemperatureData(label : str, temperature_data : list) -> None:
+    def mapTemperatureData(label, temperature_data):
         temp_values = np.array(list(map(lambda x : float(x["value"]), temperature_data)))
         temp_time_values = np.array(list(map(lambda x : convertTime(x["validTime"]), temperature_data)))
         temperature_ax.plot(temp_time_values, temp_values, label=label)
 
-    plotTemperatureData("Maximum Daily Temperature", max_temperature_data)
-    plotTemperatureData("Mean Temperature", mean_temperature_data)
-    plotTemperatureData("Minimum Daily Temperature", min_temperature_data)
+    
+    mapTemperatureData("Maximum Daily Temperature", max_temperature_data)
+    mapTemperatureData("Mean Temperature", mean_temperature_data)
+    mapTemperatureData("Minimum Daily Temperature", min_temperature_data)
 
-    temperature_ax.set_xlabel('Forecast Ahead (no. Days)')
+    temperature_ax.set_xlabel('Days Ahead')
     temperature_ax.set_ylabel('Temperature (degrees C)')
     temperature_ax.set_title('Min and Max Temperatures')
 

@@ -76,54 +76,73 @@ def main():
     if not validateResponse(forecast_grid_response):
         print("Forecast call problem")
         exit(1)
+
     
     grid_data = forecast_grid_response.json()["properties"]
     min_temperature_data = grid_data["minTemperature"]["values"]
     max_temperature_data = grid_data["maxTemperature"]["values"]
 
-    mean_temperature_data = list(map(
-        lambda zip_temp_data : 
-            {
-                "validTime":zip_temp_data[0]["validTime"], 
-                "value":(zip_temp_data[0]["value"] + zip_temp_data[1]["value"]) / 2
-            }, 
-        zip(min_temperature_data, max_temperature_data)
-        )
-    )
+    hourly_temperature_data = grid_data["temperature"]["values"]
 
+    totals = {}
+    means = []
+
+    today = datetime.now()
+
+    for record in hourly_temperature_data:
+        # YYYY-MM-DD is 10 characters
+        iso_date, time_valid_code = record["validTime"].split("/")
+        days_ahead = datetime.fromisoformat(iso_date).toordinal() - today.toordinal()
+        time_valid = int(time_valid_code[2:-1])
+
+        temperature_value = record["value"]
+
+        if days_ahead not in totals:
+            totals[days_ahead] = {"time_recorded" : 0, "total_temperature" : 0 }
+        totals[days_ahead]["time_recorded"] += time_valid
+        totals[days_ahead]["total_temperature"] += temperature_value
     
-    def apiToDateTime(api_date : str) -> datetime:
+    for days_ahead in totals.keys():
+        means.append( 
+            {
+                "value" : totals[days_ahead]["total_temperature"]/
+                    totals[days_ahead]["time_recorded"] , 
+                "validTime" : days_ahead
+            }
+        )
+
+    def convertTime(api_date):
         iso_date = api_date.split("/")[0]
-        return datetime.fromisoformat(iso_date)
-
-    def getDaysAhead(date : datetime) -> int:
-        return date.toordinal() - datetime.now().toordinal()
-
-    def convertTime(api_date : str) -> float:
-        datetime_date = apiToDateTime(api_date)
-        days_ahead = getDaysAhead(datetime_date)
-        # hour_percent = datetime_date.time().hour / 24
-        value = float(days_ahead) # + hour_percent
+        datetime_date = datetime.fromisoformat(iso_date)
+        days_ahead = datetime_date.toordinal() - today.toordinal()
+        hour_percent = datetime_date.time().hour / 24
+        value = days_ahead + hour_percent
         return value
+
+    def getTimePercent(api_date):
+        print(api_date)
+        return 0
 
     fig, temperature_ax = plt.subplots()
 
-    def plotTemperatureData(label : str, temperature_data : list) -> None:
+    def mapTemperatureData(label, temperature_data):
         temp_values = np.array(list(map(lambda x : float(x["value"]), temperature_data)))
         temp_time_values = np.array(list(map(lambda x : convertTime(x["validTime"]), temperature_data)))
         temperature_ax.plot(temp_time_values, temp_values, label=label)
 
-    plotTemperatureData("Maximum Daily Temperature", max_temperature_data)
-    plotTemperatureData("Mean Temperature", mean_temperature_data)
-    plotTemperatureData("Minimum Daily Temperature", min_temperature_data)
+    
+    mapTemperatureData("Minimum Daily Temperature", min_temperature_data)
+    mapTemperatureData("Maximum Daily Temperature", max_temperature_data)
+    mapTemperatureData("Hourly Temperature", hourly_temperature_data)
 
-    temperature_ax.set_xlabel('Forecast Ahead (no. Days)')
+    temperature_ax.plot(list(map(lambda x : x["validTime"], means)), list(map(lambda x : x["value"], means)), label="Mean Temperature")
+
+
+    temperature_ax.set_xlabel('Days Ahead')
     temperature_ax.set_ylabel('Temperature (degrees C)')
     temperature_ax.set_title('Min and Max Temperatures')
 
-    plt.legend()
     plt.show()
-    
 
 
 main()
