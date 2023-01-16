@@ -42,6 +42,53 @@ def validateResponse(response : requests.Response) -> bool:
 
     return True
 
+def plotTemperatureData(grid_data):
+    min_temperature_data = grid_data["minTemperature"]["values"]
+    max_temperature_data = grid_data["maxTemperature"]["values"]
+
+    ## Calculate Mean Temperature Data
+    mean_temperature_data = list(map(
+        lambda zip_temp_data : 
+            {
+                "validTime":zip_temp_data[0]["validTime"], 
+                "value":(zip_temp_data[0]["value"] + zip_temp_data[1]["value"]) / 2
+            }, 
+        zip(min_temperature_data, max_temperature_data)
+        )
+    )
+    
+    def apiToDateTime(api_date : str) -> datetime:
+        iso_date = api_date.split("/")[0]
+        return datetime.fromisoformat(iso_date)
+
+    def getDaysAhead(date : datetime) -> int:
+        return date.toordinal() - datetime.now().toordinal()
+
+    def convertTime(api_date : str) -> float:
+        datetime_date = apiToDateTime(api_date)
+        days_ahead = getDaysAhead(datetime_date)
+        hour_percent = datetime_date.time().hour / 24
+        value = float(days_ahead)  + hour_percent
+        return value
+
+    fig, temperature_ax = plt.subplots()
+
+    def mapTemperatureData(label : str, temperature_data : list) -> None:
+        temp_values = np.array(list(map(lambda x : float(x["value"]), temperature_data)))
+        temp_time_values = np.array(list(map(lambda x : convertTime(x["validTime"]), temperature_data)))
+        temperature_ax.plot(temp_time_values, temp_values, label=label)
+
+    mapTemperatureData("Maximum Daily Temperature", max_temperature_data)
+    mapTemperatureData("Mean Temperature", mean_temperature_data)
+    mapTemperatureData("Minimum Daily Temperature", min_temperature_data)
+
+    temperature_ax.set_xlabel('Forecast Ahead (no. Days)')
+    temperature_ax.set_ylabel('Temperature (degrees C)')
+    temperature_ax.set_title('Min and Max Temperatures')
+
+    plt.legend()
+    plt.show()
+
 def main():
 
     valid_args = verifyArguments(len(sys.argv), sys.argv)
@@ -77,53 +124,11 @@ def main():
         print("Forecast call problem")
         exit(1)
     
+    # Get Data
     grid_data = forecast_grid_response.json()["properties"]
-    min_temperature_data = grid_data["minTemperature"]["values"]
-    max_temperature_data = grid_data["maxTemperature"]["values"]
-
-    ## Calculate Mean Temperature Data
-    mean_temperature_data = list(map(
-        lambda zip_temp_data : 
-            {
-                "validTime":zip_temp_data[0]["validTime"], 
-                "value":(zip_temp_data[0]["value"] + zip_temp_data[1]["value"]) / 2
-            }, 
-        zip(min_temperature_data, max_temperature_data)
-        )
-    )
-
     
-    def apiToDateTime(api_date : str) -> datetime:
-        iso_date = api_date.split("/")[0]
-        return datetime.fromisoformat(iso_date)
-
-    def getDaysAhead(date : datetime) -> int:
-        return date.toordinal() - datetime.now().toordinal()
-
-    def convertTime(api_date : str) -> float:
-        datetime_date = apiToDateTime(api_date)
-        days_ahead = getDaysAhead(datetime_date)
-        hour_percent = datetime_date.time().hour / 24
-        value = float(days_ahead)  + hour_percent
-        return value
-
-    fig, temperature_ax = plt.subplots()
-
-    def plotTemperatureData(label : str, temperature_data : list) -> None:
-        temp_values = np.array(list(map(lambda x : float(x["value"]), temperature_data)))
-        temp_time_values = np.array(list(map(lambda x : convertTime(x["validTime"]), temperature_data)))
-        temperature_ax.plot(temp_time_values, temp_values, label=label)
-
-    plotTemperatureData("Maximum Daily Temperature", max_temperature_data)
-    plotTemperatureData("Mean Temperature", mean_temperature_data)
-    plotTemperatureData("Minimum Daily Temperature", min_temperature_data)
-
-    temperature_ax.set_xlabel('Forecast Ahead (no. Days)')
-    temperature_ax.set_ylabel('Temperature (degrees C)')
-    temperature_ax.set_title('Min and Max Temperatures')
-
-    plt.legend()
-    plt.show()
+    # Plot
+    plotTemperatureData(grid_data)
     
 
 
