@@ -81,6 +81,7 @@ def main():
     min_temperature_data = grid_data["minTemperature"]["values"]
     max_temperature_data = grid_data["maxTemperature"]["values"]
 
+    ## Calculate Mean Temperature Data
     mean_temperature_data = list(map(
         lambda zip_temp_data : 
             {
@@ -102,8 +103,8 @@ def main():
     def convertTime(api_date : str) -> float:
         datetime_date = apiToDateTime(api_date)
         days_ahead = getDaysAhead(datetime_date)
-        # hour_percent = datetime_date.time().hour / 24
-        value = float(days_ahead) # + hour_percent
+        hour_percent = datetime_date.time().hour / 24
+        value = float(days_ahead)  + hour_percent
         return value
 
     fig, temperature_ax = plt.subplots()
@@ -130,3 +131,6 @@ main()
 
 # example coords : 38.8894, -77.0352
 # example call : python weather_api_task.py 38.8894 -77.0352
+
+# Statue of Liberty Coords : 40.4121 -74.0240
+# python weather_api_task.py 40.4121 -74.0240
